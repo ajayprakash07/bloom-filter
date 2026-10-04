@@ -3,6 +3,10 @@ import java.nio.charset.StandardCharsets;
 
 class bloomFilter{
 
+    static int filterSize = 10000000; //10 million
+    static int size= (filterSize+63)>>>6;
+    static long[] words= new long[size];
+
     public class HashGenerator {
         private static final long FNV_64_INIT = 0xcbf29ce484222325L;
         private static final long FNV_64_PRIME = 0x100000001b3L;
@@ -44,24 +48,62 @@ class bloomFilter{
         }
     }
 
-
     public static void main(String[] args) {
-        String name ="Ajay Prakash Singh";
-
-        HashGenerator.BaseHashes bases = HashGenerator.generateBaseHashes(name);
-        System.out.println("h1: " + bases.h1);
-        System.out.println("h2: " + bases.h2);
-
-        System.out.println("\n--- 5 Generated Hashes ---");
-        for (int i=0;i<7;i++){
-            System.out.println("Hash " +i+ ": " +bases.getHash(i));
+        for(int i=0;i<100000;i++){
+            String name="username" + i;
+            add(name);
         }
 
-        int filterSize = 10000000;
-        System.out.println("\n--- 5 Bounded Array Indexes ---");
-        for (int i = 0; i < 7; i++) {
-            System.out.println("Index " + i + ": " + bases.getBoundedHash(i, filterSize));
+        double ram=(words.length * 8)/(1024*1024);
+        System.out.println(ram + "MB");
+
+        int falsePositives = 0;
+        int totalUninsertedQueries = 100000;
+
+        for (int i = 0; i < totalUninsertedQueries; i++) {
+            // keys that were not added 
+            String unknownKey = "absent_key_" + i; 
+            if (search(unknownKey))falsePositives++;
         }
+
+        double rate = (falsePositives / (double) totalUninsertedQueries) * 100;
+        System.out.println("False Positive Count: " + falsePositives);
+        System.out.println("Empirical False Positive Rate: " + rate + "%");
+    }
+
+    public static void setBit(int bit){
+        int index=bit>>>6;
+        int bitoffset=bit&63;
+        words[index] |= (1L<<bitoffset);
+    }
+
+    public static boolean isSetBit(int bit){
+        int index=bit>>>6;
+        int bitoffset=bit&63;
+        return (words[index]&(1L << bitoffset))!=0;
+    }
+
+    public static boolean add(String word){
+        if(word==null) return false;
+        HashGenerator.BaseHashes bases = HashGenerator.generateBaseHashes(word);
         
+        //generating index and seting bit
+        for (int i=0;i<7;i++) {
+            int index=bases.getBoundedHash(i, filterSize);
+            setBit(index);
         }
+
+        return true;
+    }
+
+    public static boolean search(String word){
+        HashGenerator.BaseHashes bases = HashGenerator.generateBaseHashes(word);
+
+        for (int i=0;i<7;i++) {
+            int index=bases.getBoundedHash(i, filterSize);
+            if(!isSetBit(index)) return false;
+        }
+
+        return true;
+    }
 }
