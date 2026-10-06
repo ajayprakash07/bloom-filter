@@ -49,7 +49,7 @@ class bloomFilter{
     }
 
     public static void main(String[] args) {
-        for(int i=0;i<100000;i++){
+        for(int i=0;i<1_000_000;i++){
             String name="username" + i;
             add(name);
         }
@@ -69,6 +69,11 @@ class bloomFilter{
         double rate = (falsePositives / (double) totalUninsertedQueries) * 100;
         System.out.println("False Positive Count: " + falsePositives);
         System.out.println("Empirical False Positive Rate: " + rate + "%");
+
+        //System.out.println("Memory Allocated: " + String.format("%.2f", ram) + " MB");
+
+        // Benchmark 1,000,000 inserts and queries
+        //benchmarkOperations(1_000_000);
     }
 
     public static void setBit(int bit){
@@ -106,4 +111,47 @@ class bloomFilter{
 
         return true;
     }
+
+    public static void benchmarkOperations(int totalOperations) {
+        System.out.println("=== Starting Performance Benchmark ===");
+
+        // 1. JIT Warmup Phase
+        for (int i = 0; i < 10_000; i++) {
+            add("warmup_" + i);
+            search("warmup_" + i);
+        }
+
+        // Clear bit array back to 0 after warmup
+        Arrays.fill(words, 0L);
+
+        // 2. Benchmark Insertions
+        long startInsert = System.nanoTime();
+        for (int i = 0; i < totalOperations; i++) {
+            add("bench_user_" + i);
+        }
+        long endInsert = System.nanoTime();
+
+        // 3. Benchmark Lookups
+        long startLookup = System.nanoTime();
+        int hits = 0;
+        for (int i = 0; i < totalOperations; i++) {
+            if (search("bench_user_" + i)) {
+                hits++;
+            }
+        }
+        long endLookup = System.nanoTime();
+
+        // 4. Time & Throughput Calculations
+        double insertTimeMs = (endInsert - startInsert) / 1_000_000.0;
+        double lookupTimeMs = (endLookup - startLookup) / 1_000_000.0;
+
+        double insertOpsPerSec = (totalOperations / insertTimeMs) * 1000.0;
+        double lookupOpsPerSec = (totalOperations / lookupTimeMs) * 1000.0;
+
+        // 5. Metrics Display
+        System.out.printf("Operations Tested: %,d%n", totalOperations);
+        System.out.printf("Total Insert Time: %.3f ms (%,.0f ops/sec)%n", insertTimeMs, insertOpsPerSec);
+        System.out.printf("Total Lookup Time: %.3f ms (%,.0f ops/sec)%n", lookupTimeMs, lookupOpsPerSec);
+        System.out.printf("Average Lookup Latency: %.2f nanoseconds per key%n", (endLookup - startLookup) / (double) totalOperations);
+}
 }
